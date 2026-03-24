@@ -70,6 +70,18 @@ iOS builds require macOS (or use Expo Go for testing)
 Web and mobile share logic via the packages/ directory
 Make sure you are in the correct folder (apps/web or apps/mobile) before running commands
 
+Workflow:
+# Do all your work on testing
+git add .
+git commit -m "your message"
+git push origin testing
+
+# When ready to release to production, merge into main
+git checkout main
+git merge testing
+git push origin main
+git checkout testing  # switch back to keep working
+
 
 📈 Roadmap
 
