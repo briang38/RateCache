@@ -2,11 +2,18 @@
   "name": "ratecache",
   "version": "1.0.0",
   "description": "Offline-first currency converter for travelers with cached exchange rates and multi-platform support (Web, iOS, Android).",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "main": "index.js",
   "directories": {
     "doc": "docs"
   },
   "scripts": {
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:mobile": "npm run start --workspace=apps/mobile",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -16,7 +23,6 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "bugs": {
     "url": "https://github.com/briang38/RateCache/issues"
   },
