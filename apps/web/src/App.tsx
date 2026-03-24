@@ -7,9 +7,12 @@ import Login from "./components/Login";
 import CurrencySettings from "./components/CurrencySettings";
 import BankSettings from "./components/BankSettings";
 import CurrencyCard from "./components/CurrencyCard";
+import TravelPage from "./components/travel/TravelPage";
 import { useRates } from "./hooks/useRates";
 import { useUserPreferences } from "./hooks/useUserPreferences";
 import { BANKS } from "./data/banks";
+
+type Tab = "rates" | "travel";
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -17,6 +20,8 @@ function App() {
   const [amount, setAmount] = useState(1);
   const [showSettings, setShowSettings] = useState(false);
   const [showBankSettings, setShowBankSettings] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>("rates");
+
   const { preferences, updatePreferences } = useUserPreferences(user);
   const { getRate, lastUpdated, isOffline } = useRates(preferences.baseCurrency);
 
@@ -41,11 +46,17 @@ function App() {
     <BankSettings preferences={preferences} onSave={updatePreferences} onClose={() => setShowBankSettings(false)} />
   );
 
+  // ── Travel tab — full-screen, own layout ──────────────────────────────────
+  if (activeTab === "travel") {
+    return <TravelPage user={user} onBack={() => setActiveTab("rates")} />;
+  }
+
+  // ── Rates tab — existing layout ───────────────────────────────────────────
   return (
     <div style={{ padding: "24px", maxWidth: "480px", margin: "0 auto" }}>
 
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <img src={user.photoURL ?? ""} referrerPolicy="no-referrer" width={36} style={{ borderRadius: "50%" }} />
           <span style={{ fontWeight: "bold" }}>{user.displayName}</span>
@@ -61,6 +72,36 @@ function App() {
             Sign Out
           </button>
         </div>
+      </div>
+
+      {/* Tab switcher */}
+      <div style={{ display: "flex", gap: "8px", marginBottom: "20px", background: "#f3f3f3", borderRadius: "10px", padding: "4px" }}>
+        <button
+          onClick={() => setActiveTab("rates")}
+          style={{
+            flex: 1, padding: "8px", borderRadius: "7px", border: "none", cursor: "pointer",
+            fontWeight: 700, fontSize: "13px",
+            background: activeTab === "rates" ? "#fff" : "transparent",
+            color: activeTab === "rates" ? "#111" : "#888",
+            boxShadow: activeTab === "rates" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+            transition: "all 0.15s",
+          }}
+        >
+          💱 Rates
+        </button>
+        <button
+          onClick={() => setActiveTab("travel")}
+          style={{
+            flex: 1, padding: "8px", borderRadius: "7px", border: "none", cursor: "pointer",
+            fontWeight: 700, fontSize: "13px",
+            background: activeTab === "travel" ? "#fff" : "transparent",
+            color: activeTab === "travel" ? "#111" : "#888",
+            boxShadow: activeTab === "travel" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+            transition: "all 0.15s",
+          }}
+        >
+          ✈️ Travel Budget
+        </button>
       </div>
 
       {/* Title */}
