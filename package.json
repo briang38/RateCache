@@ -1,0 +1,24 @@
+{
+  "name": "ratecache",
+  "version": "1.0.0",
+  "description": "Offline-first currency converter for travelers with cached exchange rates and multi-platform support (Web, iOS, Android).",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/briang38/RateCache.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/briang38/RateCache/issues"
+  },
+  "homepage": "https://github.com/briang38/RateCache#readme"
+}
