@@ -1,0 +1,23 @@
+code .gitignore
+```
+
+And paste this in and save:
+```
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+.env.local
+
+# Build outputs
+dist/
+build/
+
+# Expo
+.expo/
+apps/mobile/.expo/
+
+# OS files
+.DS_Store
+Thumbs.db

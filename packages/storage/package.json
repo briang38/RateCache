@@ -1,0 +1,7 @@
+{
+  "name": "@ratecache/storage",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.ts",
+  "types": "index.ts"
+}
