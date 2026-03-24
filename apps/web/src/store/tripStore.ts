@@ -28,6 +28,7 @@ export interface Trip {
 export interface Expense {
   id: string;
   tripId: string;
+  userId: string;
   name: string;
   amount: number;
   category: string;
@@ -47,7 +48,7 @@ export interface TripState {
   loadTrip: (userId: string) => Promise<void>;
   updateCatBudget: (catName: string, value: number) => void;
   autoSplit: () => void;
-  addExpense: (data: Omit<Expense, "id" | "tripId" | "timestamp">) => Promise<void>;
+  addExpense: (data: Omit<Expense, "id" | "tripId" | "userId" | "timestamp">) => Promise<void>;
   deleteExpense: (id: string) => Promise<void>;
   resetTrip: () => void;
   // Derived
@@ -171,13 +172,9 @@ const useTripStore = create<TripState>((set, get) => ({
     const { trip } = get();
     if (!trip) return;
     const id = `exp_${Date.now()}`;
-    const expense: Expense = { id, tripId: trip.id, timestamp: Date.now(), ...data };
+    const expense: Expense = { id, tripId: trip.id, userId: trip.userId, timestamp: Date.now(), ...data };
     set(s => ({ expenses: [expense, ...s.expenses] }));
-    try {
-      await setDoc(doc(db, "expenses", id), expense);
-    } catch (e) {
-      console.warn("Expense write failed:", e);
-    }
+    setDoc(doc(db, "expenses", id), expense).catch(() => {});
   },
 
   deleteExpense: async (id) => {
