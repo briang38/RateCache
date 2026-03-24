@@ -82,6 +82,22 @@ git merge testing
 git push origin main
 git checkout testing  # switch back to keep working
 
+HOW TO MERGE INTO PRODUCTION
+1. Make sure everything is committed on testing first:
+powershellgit status
+If clean, continue.
+2. Switch to main:
+powershellgit checkout main
+3. Merge testing into main:
+powershellgit merge testing
+4. Push main to GitHub:
+powershellgit push origin main
+5. Switch back to testing to keep working:
+powershellgit checkout testing
+
+Daily work → commit and push to testing
+Ready to release → merge testing into main and push
+
 
 📈 Roadmap
 
