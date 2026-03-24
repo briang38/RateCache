@@ -31,24 +31,46 @@ ratecache/
 │
 ├── docs/           # Architecture + planning
 ├── README.md
+
 🛠️ Tech Stack
 React (Vite)
 React Native (Expo)
 TypeScript
 LocalStorage / AsyncStorage
 REST APIs for exchange rates
+
 📦 Getting Started
 1. Clone the repo
 git clone https://github.com/yourusername/ratecache.git
 cd ratecache
-2. Install dependencies
+2. Install dependencies (root)
 npm install
-3. Run web app
+🌐 Run Web App (Vite)
 cd apps/web
 npm run dev
-4. Run mobile app
+
+App will run on:
+local host
+
+📱 Run Mobile App (Expo)
 cd apps/mobile
+npm install
 npx expo start
+
+Then choose:
+
+Press a → Run on Android emulator
+Press i → Run on iOS simulator (Mac only)
+Press w → Run in browser
+
+Or scan the QR code with the Expo Go app on your phone.
+
+⚠️ Notes
+iOS builds require macOS (or use Expo Go for testing)
+Web and mobile share logic via the packages/ directory
+Make sure you are in the correct folder (apps/web or apps/mobile) before running commands
+
+
 📈 Roadmap
 
 Add more currencies
