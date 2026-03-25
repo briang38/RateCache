@@ -11,14 +11,24 @@ interface Props {
 }
 
 export default function TravelPage({ user, onBack }: Props) {
-  const view      = useTripStore(s => s.view);
-  const loadTrip  = useTripStore(s => s.loadTrip);
-  const resetTrip = useTripStore(s => s.resetTrip);
-  const setView   = useTripStore(s => s.setView);
+  const view           = useTripStore(s => s.view);
+  const trip           = useTripStore(s => s.trip);
+  const trips          = useTripStore(s => s.trips);
+  const expensesTripId = useTripStore(s => s.expensesTripId);
+  const loadTrip       = useTripStore(s => s.loadTrip);
+  const loadExpenses   = useTripStore(s => s.loadExpenses);
+  const resetTrip      = useTripStore(s => s.resetTrip);
+  const setView        = useTripStore(s => s.setView);
 
+  // Only hit Firestore if trips haven't been loaded yet (e.g. landing directly on travel tab)
   useEffect(() => {
-    loadTrip(user.uid);
+    if (trips.length === 0) loadTrip(user.uid);
   }, [user.uid]);
+
+  // Reload expenses when the active trip changes (e.g. selected from home page)
+  useEffect(() => {
+    if (trip && expensesTripId !== trip.id) loadExpenses(trip.id);
+  }, [trip?.id, expensesTripId]);
 
   const handleNewTrip = () => {
     resetTrip();

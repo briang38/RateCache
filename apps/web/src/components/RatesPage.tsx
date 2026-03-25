@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { User } from "firebase/auth";
 import { signOut } from "firebase/auth";
 import { auth } from "../firebase";
@@ -7,7 +7,8 @@ import CurrencyCard from "./CurrencyCard";
 import CurrencySettings from "./CurrencySettings";
 import BankSettings from "./BankSettings";
 import useTripStore from "../store/tripStore";
-import { daysLeft, getCurrencySymbol } from "../store/tripStore";
+import { daysLeft, getCurrencySymbol, fmtDate } from "../store/tripStore";
+import type { Trip } from "../store/tripStore";
 import { useRates } from "../hooks/useRates";
 import { useUserPreferences } from "../hooks/useUserPreferences";
 import { BANKS } from "../data/banks";
@@ -22,6 +23,13 @@ function greeting(name: string) {
   const time = h < 12 ? "morning" : h < 17 ? "afternoon" : "evening";
   return `Good ${time}, ${name.split(" ")[0]}`;
 }
+
+const countBtn: React.CSSProperties = {
+  width: 22, height: 22, borderRadius: 6, border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(255,255,255,0.05)", color: "rgba(240,239,254,0.7)",
+  fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex",
+  alignItems: "center", justifyContent: "center", padding: 0, lineHeight: 1,
+};
 
 const glassBtn: React.CSSProperties = {
   background: "rgba(255,255,255,0.06)",
@@ -39,12 +47,43 @@ export default function RatesPage({ user, onGoToTravel }: Props) {
   const [amount, setAmount] = useState(1);
   const [showSettings, setShowSettings] = useState(false);
   const [showBankSettings, setShowBankSettings] = useState(false);
+  const [tripsToShow, setTripsToShow] = useState<number>(() => {
+    const saved = localStorage.getItem("rc_trips_to_show");
+    return saved ? parseInt(saved) : 2;
+  });
 
   const { preferences, updatePreferences } = useUserPreferences(user);
   const { getRate, lastUpdated, isOffline } = useRates(preferences.baseCurrency);
 
-  const trip = useTripStore(s => s.trip);
-  const getTotalSpent = useTripStore(s => s.getTotalSpent);
+  const trips        = useTripStore(s => s.trips);
+  const trip         = useTripStore(s => s.trip);
+  const expensesTripId = useTripStore(s => s.expensesTripId);
+  const getTotalSpent  = useTripStore(s => s.getTotalSpent);
+  const loadTrip     = useTripStore(s => s.loadTrip);
+  const setTrip      = useTripStore(s => s.setTrip);
+  const resetTrip    = useTripStore(s => s.resetTrip);
+
+  useEffect(() => {
+    if (trips.length === 0) loadTrip(user.uid);
+  }, [user.uid]);
+
+  const changeTripsToShow = (delta: number) => {
+    setTripsToShow(prev => {
+      const next = Math.max(1, Math.min(prev + delta, 5));
+      localStorage.setItem("rc_trips_to_show", String(next));
+      return next;
+    });
+  };
+
+  const handleSelectTrip = (t: Trip) => {
+    setTrip(t);
+    onGoToTravel();
+  };
+
+  const handleNewTrip = () => {
+    resetTrip();
+    onGoToTravel();
+  };
 
   const selectedBank = BANKS.find(b => b.id === preferences.bankId) ?? BANKS[BANKS.length - 1];
   const effectiveMarkup = preferences.bankId === "custom" ? preferences.customMarkup : selectedBank.markup;
@@ -57,10 +96,8 @@ export default function RatesPage({ user, onGoToTravel }: Props) {
     return <BankSettings preferences={preferences} onSave={updatePreferences} onClose={() => setShowBankSettings(false)} />;
   }
 
-  const totalSpent = trip ? getTotalSpent() : 0;
-  const budgetPct = trip ? Math.min(100, Math.round((totalSpent / trip.totalBudget) * 100)) : 0;
-  const dl = trip ? daysLeft(trip.startDate, trip.endDate) : 0;
-  const sym = trip ? getCurrencySymbol(trip.currency) : "$";
+  const totalSpent = trip && expensesTripId === trip.id ? getTotalSpent() : 0;
+  const budgetPct  = trip ? Math.min(100, Math.round((totalSpent / trip.totalBudget) * 100)) : 0;
 
   return (
     <div style={{ minHeight: "100vh", background: "#05050f", position: "relative" }}>
@@ -123,48 +160,150 @@ export default function RatesPage({ user, onGoToTravel }: Props) {
           </span>
         </div>
 
-        {/* Active trip snapshot */}
-        {trip && (
-          <div
-            onClick={onGoToTravel}
-            style={{
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.09)",
-              borderRadius: 14,
-              padding: "14px 16px",
-              marginBottom: 24,
-              cursor: "pointer",
-              transition: "background 0.15s",
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.07)")}
-            onMouseLeave={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
-          >
+        {/* Trip list */}
+        {(trips.length > 0) && (
+          <div style={{ marginBottom: 24 }}>
+            {/* Section header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <span style={{ color: "rgba(240,239,254,0.9)", fontWeight: 700, fontSize: 15, fontFamily: "'Cabinet Grotesk', sans-serif" }}>
-                ✈️ {trip.destination}
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(240,239,254,0.35)", fontFamily: "'Cabinet Grotesk', sans-serif" }}>
+                Recent Trips
               </span>
-              <span style={{ fontSize: 11, color: "rgba(240,239,254,0.4)" }}>
-                {dl > 0 ? `${dl} day${dl !== 1 ? "s" : ""} left` : "Trip ended"}
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 11, color: "rgba(240,239,254,0.3)" }}>Show</span>
+                <button
+                  onClick={() => changeTripsToShow(-1)}
+                  style={{ ...countBtn, opacity: tripsToShow <= 1 ? 0.3 : 1 }}
+                  disabled={tripsToShow <= 1}
+                >−</button>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(240,239,254,0.7)", minWidth: 14, textAlign: "center" }}>
+                  {tripsToShow}
+                </span>
+                <button
+                  onClick={() => changeTripsToShow(1)}
+                  style={{ ...countBtn, opacity: tripsToShow >= 5 ? 0.3 : 1 }}
+                  disabled={tripsToShow >= 5}
+                >+</button>
+              </div>
+            </div>
+
+            {/* Trip cards */}
+            {trips.slice(0, tripsToShow).map(t => {
+              const isActive = trip?.id === t.id;
+              const dl = daysLeft(t.startDate, t.endDate);
+              const sym = getCurrencySymbol(t.currency);
+              return (
+                <div
+                  key={t.id}
+                  onClick={() => handleSelectTrip(t)}
+                  style={{
+                    background: isActive ? "rgba(96,165,250,0.07)" : "rgba(255,255,255,0.04)",
+                    border: `1px solid ${isActive ? "rgba(96,165,250,0.25)" : "rgba(255,255,255,0.09)"}`,
+                    borderRadius: 14,
+                    padding: "14px 16px",
+                    marginBottom: 8,
+                    cursor: "pointer",
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = isActive ? "rgba(96,165,250,0.11)" : "rgba(255,255,255,0.07)")}
+                  onMouseLeave={e => (e.currentTarget.style.background = isActive ? "rgba(96,165,250,0.07)" : "rgba(255,255,255,0.04)")}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: isActive ? 10 : 4 }}>
+                    <span style={{ color: "rgba(240,239,254,0.9)", fontWeight: 700, fontSize: 15, fontFamily: "'Cabinet Grotesk', sans-serif" }}>
+                      ✈️ {t.destination}
+                    </span>
+                    <span style={{ fontSize: 11, color: "rgba(240,239,254,0.4)" }}>
+                      {dl > 0 ? `${dl}d left` : "Ended"}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 11, color: "rgba(240,239,254,0.35)" }}>
+                      {fmtDate(t.startDate)} – {fmtDate(t.endDate)}
+                    </span>
+                    <span style={{ fontSize: 12, color: "rgba(240,239,254,0.55)" }}>
+                      {sym}{t.totalBudget.toLocaleString()} {t.currency}
+                    </span>
+                  </div>
+
+                  {/* Budget bar — only for the trip with loaded expenses */}
+                  {isActive && expensesTripId === t.id && (
+                    <>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, marginBottom: 6 }}>
+                        <span style={{ fontSize: 12, color: "rgba(240,239,254,0.45)" }}>Budget used</span>
+                        <span style={{ fontSize: 12, color: "rgba(240,239,254,0.75)" }}>
+                          {sym}{totalSpent.toLocaleString()}
+                          <span style={{ color: "rgba(240,239,254,0.3)" }}> / {sym}{t.totalBudget.toLocaleString()}</span>
+                        </span>
+                      </div>
+                      <div style={{ height: 4, background: "rgba(255,255,255,0.08)", borderRadius: 2, overflow: "hidden" }}>
+                        <div style={{
+                          height: "100%", width: `${budgetPct}%`,
+                          background: budgetPct > 85 ? "#fb923c" : "#60a5fa",
+                          borderRadius: 2, transition: "width 0.4s ease",
+                        }} />
+                      </div>
+                      <div style={{ marginTop: 5, fontSize: 11, color: "rgba(240,239,254,0.3)", textAlign: "right" }}>
+                        {budgetPct}% used · tap to manage →
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* Add new trip card */}
+            <button
+              onClick={handleNewTrip}
+              style={{
+                width: "100%", display: "flex", flexDirection: "column",
+                alignItems: "center", justifyContent: "center", gap: 4,
+                padding: "14px 16px", borderRadius: 14,
+                background: "transparent",
+                border: "1px dashed rgba(255,255,255,0.15)",
+                cursor: "pointer", transition: "border-color 0.15s, background 0.15s",
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)";
+                e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)";
+                e.currentTarget.style.background = "transparent";
+              }}
+            >
+              <span style={{ fontSize: 20, color: "rgba(240,239,254,0.35)", lineHeight: 1 }}>+</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(240,239,254,0.3)", fontFamily: "'Cabinet Grotesk', sans-serif", letterSpacing: "0.05em" }}>
+                Plan a new trip
               </span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-              <span style={{ fontSize: 12, color: "rgba(240,239,254,0.45)" }}>Budget used</span>
-              <span style={{ fontSize: 12, color: "rgba(240,239,254,0.75)" }}>
-                {sym}{totalSpent.toLocaleString()}
-                <span style={{ color: "rgba(240,239,254,0.3)" }}> / {sym}{trip.totalBudget.toLocaleString()}</span>
-              </span>
-            </div>
-            <div style={{ height: 4, background: "rgba(255,255,255,0.08)", borderRadius: 2, overflow: "hidden" }}>
-              <div style={{
-                height: "100%", width: `${budgetPct}%`,
-                background: budgetPct > 85 ? "#fb923c" : "#60a5fa",
-                borderRadius: 2, transition: "width 0.4s ease",
-              }} />
-            </div>
-            <div style={{ marginTop: 6, fontSize: 11, color: "rgba(240,239,254,0.3)", textAlign: "right" }}>
-              {budgetPct}% used · tap to manage →
-            </div>
+            </button>
           </div>
+        )}
+
+        {/* No trips yet — just show the + card */}
+        {trips.length === 0 && (
+          <button
+            onClick={handleNewTrip}
+            style={{
+              width: "100%", display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center", gap: 6,
+              padding: "22px 16px", borderRadius: 14, marginBottom: 24,
+              background: "transparent",
+              border: "1px dashed rgba(255,255,255,0.15)",
+              cursor: "pointer", transition: "border-color 0.15s, background 0.15s",
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)";
+              e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)";
+              e.currentTarget.style.background = "transparent";
+            }}
+          >
+            <span style={{ fontSize: 24, color: "rgba(240,239,254,0.3)", lineHeight: 1 }}>+</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(240,239,254,0.35)", fontFamily: "'Cabinet Grotesk', sans-serif" }}>
+              Plan your first trip
+            </span>
+          </button>
         )}
 
         {/* Tab switcher */}

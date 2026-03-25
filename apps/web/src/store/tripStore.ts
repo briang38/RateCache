@@ -39,13 +39,17 @@ export interface Expense {
 
 export interface TripState {
   trip: Trip | null;
+  trips: Trip[];
   expenses: Expense[];
+  expensesTripId: string | null; // which trip's expenses are currently loaded
   loading: boolean;
   view: "setup" | "dashboard";
   // Actions
   setView: (v: "setup" | "dashboard") => void;
+  setTrip: (trip: Trip) => void;
   createTrip: (userId: string, data: Omit<Trip, "id" | "userId" | "createdAt">) => Promise<void>;
   loadTrip: (userId: string) => Promise<void>;
+  loadExpenses: (tripId: string) => Promise<void>;
   updateCatBudget: (catName: string, value: number) => void;
   autoSplit: () => void;
   addExpense: (data: Omit<Expense, "id" | "tripId" | "userId" | "timestamp">) => Promise<void>;
@@ -109,11 +113,28 @@ export function fmtDate(dateStr: string): string {
 // ─── Store ────────────────────────────────────────────────────────────────────
 const useTripStore = create<TripState>((set, get) => ({
   trip: null,
+  trips: [],
   expenses: [],
+  expensesTripId: null,
   loading: false,
   view: "setup",
 
   setView: (v) => set({ view: v }),
+
+  setTrip: (trip) => set({ trip, view: "dashboard", expensesTripId: null }),
+
+  loadExpenses: async (tripId) => {
+    try {
+      const eq = query(collection(db, "expenses"), where("tripId", "==", tripId));
+      const esnap = await getDocs(eq);
+      const expenses = esnap.docs
+        .map(d => d.data() as Expense)
+        .sort((a, b) => b.timestamp - a.timestamp);
+      set({ expenses, expensesTripId: tripId });
+    } catch (e) {
+      console.warn("Expense load failed:", e);
+    }
+  },
 
   createTrip: async (userId, data) => {
     set({ loading: true });
@@ -124,7 +145,7 @@ const useTripStore = create<TripState>((set, get) => ({
     } catch (e) {
       console.warn("Firestore write failed:", e);
     }
-    set({ trip, expenses: [], view: "dashboard", loading: false });
+    set(s => ({ trip, trips: [trip, ...s.trips], expenses: [], expensesTripId: null, view: "dashboard", loading: false }));
   },
 
   loadTrip: async (userId) => {
@@ -133,15 +154,16 @@ const useTripStore = create<TripState>((set, get) => ({
       const q = query(collection(db, "trips"), where("userId", "==", userId));
       const snap = await getDocs(q);
       if (!snap.empty) {
-        const trips = snap.docs.map(d => d.data() as Trip)
+        const allTrips = snap.docs
+          .map(d => d.data() as Trip)
           .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
-        const trip = trips[0];
-        const eq = query(collection(db, "expenses"), where("tripId", "==", trip.id));
+        const active = get().trip ?? allTrips[0];
+        const eq = query(collection(db, "expenses"), where("tripId", "==", active.id));
         const esnap = await getDocs(eq);
         const expenses = esnap.docs
           .map(d => d.data() as Expense)
           .sort((a, b) => b.timestamp - a.timestamp);
-        set({ trip, expenses, view: "dashboard" });
+        set({ trip: active, trips: allTrips, expenses, expensesTripId: active.id, view: "dashboard" });
       }
     } catch (e) {
       console.warn("Firestore load failed:", e);
@@ -182,7 +204,7 @@ const useTripStore = create<TripState>((set, get) => ({
     deleteDoc(doc(db, "expenses", id)).catch(() => {});
   },
 
-  resetTrip: () => set({ trip: null, expenses: [], view: "setup" }),
+  resetTrip: () => set({ trip: null, expenses: [], expensesTripId: null, view: "setup" }),
 
   getTotalSpent: () => get().expenses.reduce((a, e) => a + e.amount, 0),
 
