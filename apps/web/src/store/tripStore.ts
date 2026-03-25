@@ -25,6 +25,21 @@ export interface Trip {
   createdAt?: number;
 }
 
+export interface Hotel {
+  id: string;
+  tripId: string;
+  userId: string;
+  name: string;
+  address: string;
+  checkIn: string;       // "YYYY-MM-DD"
+  checkOut: string;      // "YYYY-MM-DD"
+  nights: number;
+  pricePerNight: number;
+  totalPrice: number;
+  bookingUrl: string;
+  timestamp: number;
+}
+
 export interface Expense {
   id: string;
   tripId: string;
@@ -41,8 +56,11 @@ export interface TripState {
   trip: Trip | null;
   trips: Trip[];
   expenses: Expense[];
-  expensesTripId: string | null; // which trip's expenses are currently loaded
+  expensesTripId: string | null;
+  hotels: Hotel[];
+  hotelsTripId: string | null;
   loading: boolean;
+  isDirty: boolean;
   view: "setup" | "dashboard";
   // Actions
   setView: (v: "setup" | "dashboard") => void;
@@ -50,10 +68,14 @@ export interface TripState {
   createTrip: (userId: string, data: Omit<Trip, "id" | "userId" | "createdAt">) => Promise<void>;
   loadTrip: (userId: string) => Promise<void>;
   loadExpenses: (tripId: string) => Promise<void>;
+  loadHotels: (tripId: string) => Promise<void>;
   updateCatBudget: (catName: string, value: number) => void;
   autoSplit: () => void;
   addExpense: (data: Omit<Expense, "id" | "tripId" | "userId" | "timestamp">) => Promise<void>;
   deleteExpense: (id: string) => Promise<void>;
+  addHotel: (data: Omit<Hotel, "id" | "tripId" | "userId" | "timestamp">) => Promise<void>;
+  deleteHotel: (id: string) => Promise<void>;
+  saveTrip: () => Promise<void>;
   resetTrip: () => void;
   // Derived
   getTotalSpent: () => number;
@@ -116,7 +138,10 @@ const useTripStore = create<TripState>((set, get) => ({
   trips: [],
   expenses: [],
   expensesTripId: null,
+  hotels: [],
+  hotelsTripId: null,
   loading: false,
+  isDirty: false,
   view: "setup",
 
   setView: (v) => set({ view: v }),
@@ -124,11 +149,14 @@ const useTripStore = create<TripState>((set, get) => ({
   setTrip: (trip) => set({ trip, view: "dashboard", expensesTripId: null }),
 
   loadExpenses: async (tripId) => {
+    const userId = get().trip?.userId;
+    if (!userId) return;
     try {
-      const eq = query(collection(db, "expenses"), where("tripId", "==", tripId));
+      const eq = query(collection(db, "expenses"), where("userId", "==", userId));
       const esnap = await getDocs(eq);
       const expenses = esnap.docs
         .map(d => d.data() as Expense)
+        .filter(e => e.tripId === tripId)
         .sort((a, b) => b.timestamp - a.timestamp);
       set({ expenses, expensesTripId: tripId });
     } catch (e) {
@@ -143,7 +171,8 @@ const useTripStore = create<TripState>((set, get) => ({
     try {
       await setDoc(doc(db, "trips", id), { ...trip, createdAt: serverTimestamp() });
     } catch (e) {
-      console.warn("Firestore write failed:", e);
+      set({ loading: false });
+      throw e; // surface to caller so the UI can show the error
     }
     set(s => ({ trip, trips: [trip, ...s.trips], expenses: [], expensesTripId: null, view: "dashboard", loading: false }));
   },
@@ -151,17 +180,20 @@ const useTripStore = create<TripState>((set, get) => ({
   loadTrip: async (userId) => {
     set({ loading: true });
     try {
+      console.log("[loadTrip] querying with userId:", userId);
       const q = query(collection(db, "trips"), where("userId", "==", userId));
       const snap = await getDocs(q);
+      console.log("[loadTrip] got", snap.size, "trips");
       if (!snap.empty) {
         const allTrips = snap.docs
           .map(d => d.data() as Trip)
           .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
         const active = get().trip ?? allTrips[0];
-        const eq = query(collection(db, "expenses"), where("tripId", "==", active.id));
+        const eq = query(collection(db, "expenses"), where("userId", "==", userId));
         const esnap = await getDocs(eq);
         const expenses = esnap.docs
           .map(d => d.data() as Expense)
+          .filter(e => e.tripId === active.id)
           .sort((a, b) => b.timestamp - a.timestamp);
         set({ trip: active, trips: allTrips, expenses, expensesTripId: active.id, view: "dashboard" });
       }
@@ -175,7 +207,7 @@ const useTripStore = create<TripState>((set, get) => ({
     const { trip } = get();
     if (!trip) return;
     const updated = { ...trip, catBudgets: { ...trip.catBudgets, [catName]: value } };
-    set({ trip: updated });
+    set({ trip: updated, isDirty: true });
     setDoc(doc(db, "trips", trip.id), updated).catch(() => {});
   },
 
@@ -186,7 +218,7 @@ const useTripStore = create<TripState>((set, get) => ({
     const catBudgets: Record<string, number> = {};
     trip.categories.forEach(c => { catBudgets[c.name] = each; });
     const updated = { ...trip, catBudgets };
-    set({ trip: updated });
+    set({ trip: updated, isDirty: true });
     setDoc(doc(db, "trips", trip.id), updated).catch(() => {});
   },
 
@@ -195,16 +227,53 @@ const useTripStore = create<TripState>((set, get) => ({
     if (!trip) return;
     const id = `exp_${Date.now()}`;
     const expense: Expense = { id, tripId: trip.id, userId: trip.userId, timestamp: Date.now(), ...data };
-    set(s => ({ expenses: [expense, ...s.expenses] }));
+    set(s => ({ expenses: [expense, ...s.expenses], isDirty: true }));
     setDoc(doc(db, "expenses", id), expense).catch(() => {});
   },
 
   deleteExpense: async (id) => {
-    set(s => ({ expenses: s.expenses.filter(e => e.id !== id) }));
+    set(s => ({ expenses: s.expenses.filter(e => e.id !== id), isDirty: true }));
     deleteDoc(doc(db, "expenses", id)).catch(() => {});
   },
 
-  resetTrip: () => set({ trip: null, expenses: [], expensesTripId: null, view: "setup" }),
+  loadHotels: async (tripId) => {
+    const userId = get().trip?.userId;
+    if (!userId) return;
+    try {
+      const q = query(collection(db, "hotels"), where("userId", "==", userId));
+      const snap = await getDocs(q);
+      const hotels = snap.docs
+        .map(d => d.data() as Hotel)
+        .filter(h => h.tripId === tripId)
+        .sort((a, b) => a.checkIn.localeCompare(b.checkIn));
+      set({ hotels, hotelsTripId: tripId });
+    } catch (e) {
+      console.warn("Hotel load failed:", e);
+    }
+  },
+
+  addHotel: async (data) => {
+    const { trip } = get();
+    if (!trip) return;
+    const id = `hotel_${Date.now()}`;
+    const hotel: Hotel = { id, tripId: trip.id, userId: trip.userId, timestamp: Date.now(), ...data };
+    set(s => ({ hotels: [...s.hotels, hotel].sort((a, b) => a.checkIn.localeCompare(b.checkIn)) }));
+    setDoc(doc(db, "hotels", id), hotel).catch(() => {});
+  },
+
+  deleteHotel: async (id) => {
+    set(s => ({ hotels: s.hotels.filter(h => h.id !== id), isDirty: true }));
+    deleteDoc(doc(db, "hotels", id)).catch(() => {});
+  },
+
+  saveTrip: async () => {
+    const { trip } = get();
+    if (!trip) return;
+    await setDoc(doc(db, "trips", trip.id), trip);
+    set({ isDirty: false });
+  },
+
+  resetTrip: () => set({ trip: null, expenses: [], expensesTripId: null, hotels: [], hotelsTripId: null, isDirty: false, view: "setup" }),
 
   getTotalSpent: () => get().expenses.reduce((a, e) => a + e.amount, 0),
 

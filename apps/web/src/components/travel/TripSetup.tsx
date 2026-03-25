@@ -6,6 +6,7 @@ interface Props { userId: string; }
 export default function TripSetup({ userId }: Props) {
   const createTrip = useTripStore(s => s.createTrip);
   const loading    = useTripStore(s => s.loading);
+  const [saveError, setSaveError] = useState("");
 
   const [destination, setDestination] = useState("Tokyo, Japan");
   const [startDate,   setStartDate]   = useState("2025-05-18");
@@ -27,11 +28,21 @@ export default function TripSetup({ userId }: Props) {
 
   const handleStart = async () => {
     if (!destination.trim() || !startDate || !endDate) return;
+    setSaveError("");
     const categories = CATEGORY_PRESETS.filter(c => activeCats.has(c.name));
     const budget = parseFloat(totalBudget) || 1000;
     const catBudgets: Record<string, number> = {};
     categories.forEach(c => { catBudgets[c.name] = Math.round(budget / categories.length); });
-    await createTrip(userId, { destination, startDate, endDate, totalBudget: budget, currency, categories, catBudgets });
+    try {
+      await createTrip(userId, { destination, startDate, endDate, totalBudget: budget, currency, categories, catBudgets });
+    } catch (e: any) {
+      const code = e?.code ?? "";
+      if (code.includes("permission")) {
+        setSaveError("Save failed: Firestore permission denied. Check your database rules in Firebase Console.");
+      } else {
+        setSaveError("Save failed. Check your internet connection and try again.");
+      }
+    }
   };
 
   const inp: React.CSSProperties = {
@@ -135,6 +146,12 @@ export default function TripSetup({ userId }: Props) {
           }}>
             {loading ? "Setting up…" : "Start Tracking →"}
           </button>
+
+          {saveError && (
+            <p style={{ marginTop: 12, fontSize: 12, color: "#fb923c", textAlign: "center", lineHeight: 1.5 }}>
+              ⚠️ {saveError}
+            </p>
+          )}
         </div>
       </div>
     </>

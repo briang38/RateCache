@@ -1,16 +1,33 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import useTripStore, { tripDays, daysLeft, daysElapsed, getCurrencySymbol, fmtDate } from "../../store/tripStore";
 import { StatCard, ProgressBar, GlassCard } from "./TripUI";
 import { DailyChart, CategoryDonut } from "./TripCharts";
 import { AddExpenseForm, ExpenseLog } from "./ExpenseTracker";
 import CategoryAllocator from "./CategoryAllocator";
+import HotelsSection from "./HotelsSection";
 
-interface Props { onNewTrip: () => void; }
+interface Props { onNewTrip: () => void; onBack: () => void; }
 
-export default function TripDashboard({ onNewTrip }: Props) {
+export default function TripDashboard({ onNewTrip, onBack }: Props) {
   const trip          = useTripStore(s => s.trip);
   const getTotalSpent = useTripStore(s => s.getTotalSpent);
+  const isDirty       = useTripStore(s => s.isDirty);
+  const saveTrip      = useTripStore(s => s.saveTrip);
+  const [saving, setSaving]   = useState(false);
+  const [savedOk, setSavedOk] = useState(false);
+
   if (!trip) return null;
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await saveTrip();
+      setSavedOk(true);
+      setTimeout(() => setSavedOk(false), 2500);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const sym      = getCurrencySymbol(trip.currency);
   const days     = tripDays(trip.startDate, trip.endDate);
@@ -56,6 +73,9 @@ export default function TripDashboard({ onNewTrip }: Props) {
             <div style={{ fontSize: 11, fontWeight: 700, fontFamily: "'DM Mono',monospace", letterSpacing: "0.06em", padding: "5px 14px", borderRadius: 99, border: "1px solid rgba(240,192,96,0.3)", background: "rgba(240,192,96,0.1)", color: "#f0c060", whiteSpace: "nowrap" }}>
               {left === 0 ? "Trip complete" : `${left} days left`}
             </div>
+            <button onClick={onBack} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(240,239,254,0.7)", padding: "8px 16px", borderRadius: 8, fontFamily: "inherit", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+              ← Home
+            </button>
             <button onClick={onNewTrip} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "#f0effe", padding: "8px 16px", borderRadius: 8, fontFamily: "inherit", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
               + New Trip
             </button>
@@ -104,10 +124,41 @@ export default function TripDashboard({ onNewTrip }: Props) {
             <CategoryDonut />
           </div>
 
+          {/* ── Hotels ── */}
+          <div style={{ marginBottom: "1.25rem" }}><HotelsSection /></div>
+
           {/* ── Expense form + log ── */}
-          <div className="rc-bottom-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem" }}>
+          <div className="rc-bottom-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem", marginBottom: "1.25rem" }}>
             <AddExpenseForm />
             <ExpenseLog />
+          </div>
+
+          {/* ── Save button ── */}
+          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12, paddingTop: "0.5rem", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+            {savedOk && (
+              <span style={{ fontSize: 12, color: "#4ade80", fontFamily: "'DM Mono', monospace", letterSpacing: "0.04em" }}>
+                ✓ Saved
+              </span>
+            )}
+            {isDirty && !savedOk && (
+              <span style={{ fontSize: 11, color: "rgba(240,239,254,0.3)", fontFamily: "'DM Mono', monospace" }}>
+                Unsaved changes
+              </span>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={saving || savedOk}
+              style={{
+                padding: "10px 28px", borderRadius: 10, border: "none",
+                background: savedOk ? "rgba(74,222,128,0.15)" : isDirty ? "#f0c060" : "rgba(255,255,255,0.07)",
+                color: savedOk ? "#4ade80" : isDirty ? "#0a0800" : "rgba(240,239,254,0.4)",
+                fontFamily: "'Cabinet Grotesk', sans-serif", fontSize: 14, fontWeight: 900,
+                cursor: saving || savedOk ? "default" : "pointer",
+                transition: "all 0.2s",
+              }}
+            >
+              {saving ? "Saving…" : savedOk ? "Saved ✓" : "Save Trip"}
+            </button>
           </div>
         </div>
       </div>

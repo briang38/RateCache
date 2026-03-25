@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import type { User } from "firebase/auth";
 import { signOut } from "firebase/auth";
-import { auth } from "../firebase";
+import { terminate, clearIndexedDbPersistence } from "firebase/firestore";
+import { auth, db } from "../firebase";
 import SceneBackground from "./travel/SceneBackground";
 import CurrencyCard from "./CurrencyCard";
 import CurrencySettings from "./CurrencySettings";
@@ -128,7 +129,11 @@ export default function RatesPage({ user, onGoToTravel }: Props) {
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={() => setShowBankSettings(true)} style={glassBtn}>🏦 Bank</button>
           <button onClick={() => setShowSettings(true)} style={glassBtn}>⚙️ Settings</button>
-          <button onClick={() => signOut(auth)} style={glassBtn}>Sign out</button>
+          <button onClick={async () => {
+            await signOut(auth);
+            try { await terminate(db); await clearIndexedDbPersistence(db); } catch {}
+            window.location.reload();
+          }} style={glassBtn}>Sign out</button>
         </div>
       </div>
 
