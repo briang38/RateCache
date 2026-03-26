@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import "./App.css";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, getRedirectResult } from "firebase/auth";
 import type { User } from "firebase/auth";
 import { auth } from "./firebase";
 import Login from "./components/Login";
@@ -20,6 +20,7 @@ function App() {
   const firstCheck = useRef(true);
 
   useEffect(() => {
+    getRedirectResult(auth).catch(() => {});
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (firstCheck.current) {
         // Page load — already logged in or not, no animation needed
