@@ -1,4 +1,4 @@
-import { signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { signInWithRedirect, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { useState } from "react";
 import { auth, provider } from "../firebase";
 import SceneBackground from "./travel/SceneBackground";
@@ -47,8 +47,7 @@ export default function Login() {
     try {
       setLoading(true);
       setError("");
-      await signInWithPopup(auth, provider);
-      await spinThenResolve();
+      await signInWithRedirect(auth, provider);
     } catch {
       setFastSpin(false);
       setError("Google sign in failed. Try again.");

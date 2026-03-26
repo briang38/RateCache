@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import "./App.css";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, getRedirectResult } from "firebase/auth";
 import type { User } from "firebase/auth";
 import { auth } from "./firebase";
 import Login from "./components/Login";
@@ -18,23 +18,30 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("rates");
   const firstCheck = useRef(true);
+  const fromRedirect = useRef(false);
 
   useEffect(() => {
-const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    getRedirectResult(auth)
+      .then(result => { if (result?.user) fromRedirect.current = true; })
+      .catch(() => {});
+
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (firstCheck.current) {
-        // Page load — already logged in or not, no animation needed
         firstCheck.current = false;
         setUser(currentUser);
         setLoading(false);
       } else if (currentUser) {
-        // Fresh login from the Login page — hold Login mounted
-        // long enough for the spin animation to finish
-        setTimeout(() => {
+        if (fromRedirect.current) {
+          fromRedirect.current = false;
           setUser(currentUser);
           setLoading(false);
-        }, LOGIN_TRANSITION_DELAY);
+        } else {
+          setTimeout(() => {
+            setUser(currentUser);
+            setLoading(false);
+          }, LOGIN_TRANSITION_DELAY);
+        }
       } else {
-        // Logout — immediate
         setUser(null);
         setLoading(false);
       }
