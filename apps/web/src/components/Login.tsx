@@ -49,10 +49,9 @@ export default function Login() {
       setError("");
       await signInWithPopup(auth, provider);
       await spinThenResolve();
-    } catch (err: any) {
+    } catch {
       setFastSpin(false);
-      console.error("Google sign in error:", err?.code, err?.message);
-      setError(`Google sign in failed: ${err?.code ?? err?.message ?? "unknown"}`);
+      setError("Google sign in failed. Try again.");
     } finally {
       setLoading(false);
     }
