@@ -1,4 +1,4 @@
-import { signInWithRedirect, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { useState } from "react";
 import { auth, provider } from "../firebase";
 import SceneBackground from "./travel/SceneBackground";
@@ -47,7 +47,7 @@ export default function Login() {
     try {
       setLoading(true);
       setError("");
-      await signInWithRedirect(auth, provider);
+      await signInWithPopup(auth, provider);
       await spinThenResolve();
     } catch (err: any) {
       setFastSpin(false);
