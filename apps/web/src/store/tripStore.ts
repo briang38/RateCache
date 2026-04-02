@@ -75,6 +75,7 @@ export interface TripState {
   deleteExpense: (id: string) => Promise<void>;
   addHotel: (data: Omit<Hotel, "id" | "tripId" | "userId" | "timestamp">) => Promise<void>;
   deleteHotel: (id: string) => Promise<void>;
+  updateHotel: (id: string, data: Omit<Hotel, "id" | "tripId" | "userId" | "timestamp">) => Promise<void>;
   saveTrip: () => Promise<void>;
   resetTrip: () => void;
   // Derived
@@ -264,6 +265,16 @@ const useTripStore = create<TripState>((set, get) => ({
   deleteHotel: async (id) => {
     set(s => ({ hotels: s.hotels.filter(h => h.id !== id), isDirty: true }));
     deleteDoc(doc(db, "hotels", id)).catch(() => {});
+  },
+
+  updateHotel: async (id, data) => {
+    set(s => ({
+      hotels: s.hotels.map(h => h.id === id ? { ...h, ...data } : h)
+        .sort((a, b) => a.checkIn.localeCompare(b.checkIn)),
+      isDirty: true,
+    }));
+    const hotel = get().hotels.find(h => h.id === id);
+    if (hotel) setDoc(doc(db, "hotels", id), hotel).catch(() => {});
   },
 
   saveTrip: async () => {
