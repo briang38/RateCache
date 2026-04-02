@@ -31,7 +31,7 @@ const networkColor: Record<string, string> = {
 
 export default function BankSettings({ preferences, onSave, onClose }: Props) {
   const current = BANKS.find(b => b.id === (preferences.bankId ?? "custom")) ?? BANKS[BANKS.length - 1];
-  const [step, setStep]                   = useState<"issuer" | "card">(preferences.bankId ? "card" : "issuer");
+  const [step, setStep]                   = useState<"issuer" | "card">("issuer");
   const [selectedIssuer, setSelectedIssuer] = useState(current.issuer);
   const [bankId, setBankId]               = useState(preferences.bankId ?? "custom");
   const [customMarkup, setCustomMarkup]   = useState(preferences.customMarkup ?? 0);
@@ -52,7 +52,7 @@ export default function BankSettings({ preferences, onSave, onClose }: Props) {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#05050f", fontFamily: "'Cabinet Grotesk', sans-serif" }}>
+    <div style={{ position: "fixed", inset: 0, overflowY: "auto", background: "#05050f", fontFamily: "'Cabinet Grotesk', sans-serif", zIndex: 50 }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800;900&family=DM+Mono:wght@400;500&display=swap');
         .bs-content { max-width: 480px; margin: 0 auto; padding: 20px 20px 40px; }
