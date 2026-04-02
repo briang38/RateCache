@@ -48,6 +48,7 @@ export default function RatesPage({ user, onGoToTravel }: Props) {
   const [amount, setAmount] = useState(1);
   const [showSettings, setShowSettings] = useState(false);
   const [showBankSettings, setShowBankSettings] = useState(false);
+  const [personalizedRates, setPersonalizedRates] = useState(true);
   const [tripsToShow, setTripsToShow] = useState<number>(() => {
     const saved = localStorage.getItem("rc_trips_to_show");
     return saved ? parseInt(saved) : 2;
@@ -151,7 +152,7 @@ export default function RatesPage({ user, onGoToTravel }: Props) {
         </h2>
 
         {/* Status + bank row */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
           <span style={{
             fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20,
             background: isOffline ? "rgba(251,146,60,0.15)" : "rgba(52,211,153,0.15)",
@@ -160,9 +161,57 @@ export default function RatesPage({ user, onGoToTravel }: Props) {
           }}>
             {isOffline ? "⚠️ Offline" : "✅ Live"} · {lastUpdated ?? "loading..."}
           </span>
-          <span style={{ fontSize: 11, color: "rgba(240,239,254,0.4)" }}>
-            🏦 {selectedBank.name} · {effectiveMarkup}% markup · {effectiveFee}% fee
-          </span>
+          <button
+            onClick={() => setShowBankSettings(true)}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)",
+              borderRadius: 20, padding: "3px 10px", cursor: "pointer",
+            }}
+          >
+            <span style={{ fontSize: 11, color: "rgba(240,239,254,0.5)" }}>
+              🏦 {selectedBank.name}
+            </span>
+            <span style={{
+              fontSize: 10, fontWeight: 700, fontFamily: "'DM Mono',monospace",
+              color: (effectiveMarkup + effectiveFee) === 0 ? "#34d399" : "#fb923c",
+            }}>
+              {(effectiveMarkup + effectiveFee) === 0 ? "0% fees" : `+${effectiveMarkup + effectiveFee}%`}
+            </span>
+          </button>
+        </div>
+
+        {/* Personalized rates toggle */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "10px 14px", borderRadius: 12, marginBottom: 20,
+          background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)",
+        }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#f0effe" }}>
+              {personalizedRates ? "Showing your card's rates" : "Showing base mid-market rates"}
+            </div>
+            <div style={{ fontSize: 11, color: "rgba(240,239,254,0.35)", fontFamily: "'DM Mono',monospace", marginTop: 2 }}>
+              {personalizedRates
+                ? `Includes ${effectiveMarkup + effectiveFee > 0 ? `+${effectiveMarkup + effectiveFee}% in fees` : "no extra fees"}`
+                : "No bank fees applied"}
+            </div>
+          </div>
+          <button
+            onClick={() => setPersonalizedRates(p => !p)}
+            style={{
+              position: "relative", width: 44, height: 24, borderRadius: 12, border: "none",
+              background: personalizedRates ? "#f0c060" : "rgba(255,255,255,0.12)",
+              cursor: "pointer", transition: "background 0.2s", flexShrink: 0,
+            }}
+          >
+            <div style={{
+              position: "absolute", top: 3, left: personalizedRates ? 23 : 3,
+              width: 18, height: 18, borderRadius: 9,
+              background: personalizedRates ? "#0a0800" : "rgba(255,255,255,0.5)",
+              transition: "left 0.2s",
+            }} />
+          </button>
         </div>
 
         {/* Trip list */}
@@ -368,9 +417,9 @@ export default function RatesPage({ user, onGoToTravel }: Props) {
             toCurrency={currency}
             amount={amount}
             rate={getRate(currency)}
-            bankMarkup={effectiveMarkup}
-            foreignFee={effectiveFee}
-            bankName={selectedBank.name}
+            bankMarkup={personalizedRates ? effectiveMarkup : 0}
+            foreignFee={personalizedRates ? effectiveFee : 0}
+            bankName={personalizedRates ? selectedBank.name : "Mid-market"}
           />
         ))}
       </div>
